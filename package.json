@@ -1,0 +1,33 @@
+{
+  "name": "openhab_azure_mqtt_broker",
+  "version": "1.0.0",
+  "description": "0.0.1",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jellebens/openhab-azure.git"
+  },
+  "dependencies": {
+    "azure-iot-device": "*",
+    "azure-iot-device-mqtt": "*",
+    "mosca": "*",
+    "mqtt": "*",
+    "winston": "*"
+  },
+  "keywords": [
+    "iot",
+    "openhab",
+    "azure",
+    "iothub",
+    "mqtt"
+  ],
+  "author": "Jelle Bens",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jellebens/openhab-azure/issues"
+  },
+  "homepage": "https://github.com/jellebens/openhab-azure#readme"
+}
