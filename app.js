@@ -32,7 +32,7 @@ server.on('clientConnected', function(client){
 	logger.info('Client connected', client.id);
 });
 
-server.on('published', function(packet, client){
+server.on('published', function(packet, aClient){
 	logger.info('published to topic', packet.topic.toString());
 
 	 var deviceId = packet.topic.toString().split('/', 1).toString();
@@ -40,14 +40,12 @@ server.on('published', function(packet, client){
 	 var data = JSON.stringify({ "payload": packet.payload.toString(), "topic": topic, "DeviceId": deviceId, "TimeStamp": Date() });
 	 var message = new iotDevice.Message(data);
 
-	if(client){
-
-	client.sendEvent(message, function(err){
-		if(err) {
-			logger.error(err.toString());
-		}
-	});
-}
+	if(aClient){
+		client.connection.iotclient.sendEvent(message, print('send'));
+	
+	}else{
+		logger.warn('No client element found skipping');
+	}
 
 
 });
