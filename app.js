@@ -14,18 +14,13 @@ var server = new mosca.Server(moscaSettings)
 
 var protocol = mqttDevice.Mqtt;
 
-var client = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
-
-client.open(function(err){
-	if(err){
-		logger.info('Could not connect to azure iothub ' + err);
-	}else{
-		logger.info('Connected to azure hub');
-	}
-});
+var authorized = false;
 
 server.on('ready', function(){
 	logger.info('Mosca Server started');
+	server.authenticate = authenticate;
+	server.authorizePublish = authorizePublish;
+	server.authorizeSubscribe = authorizeSubscribe;
 });
 
 server.on('clientConnected', function(client){
@@ -41,7 +36,7 @@ server.on('published', function(packet, aClient){
 	 var message = new iotDevice.Message(data);
 
 	if(aClient){
-		client.connection.iotclient.sendEvent(message, print('send'));
+		client.connectiona.iotclient.sendEvent(message, print('send'));
 	
 	}else{
 		logger.warn('No client element found skipping');
@@ -50,6 +45,26 @@ server.on('published', function(packet, aClient){
 
 });
 
+var authenticate = function(client, username, password, callback){
+	var connection = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
+        connection.open(function(args){
+              client.connectiona = connection;
+	      client.user = username;
+	      authorized = true;
+	      callback(null, authorized);
+        });
+
+}
+
+var authorizePublish = function (client, topic, payload, callback) {
+    callback(null, true);
+}
+
+var authorizeSubscribe = function (client, topic, callback) {
+    callback(null, true);
+}
+
+ 
 function print(op){
 	return function printResult(err, res) {
         if (err) console.log('IOT: ' + op + ' error: ' + err.toString());
