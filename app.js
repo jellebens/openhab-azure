@@ -17,7 +17,7 @@ var protocol = mqttDevice.Mqtt;
 var authorized = false;
 
 server.on('ready', function(){
-	logger.info('Mosca Server started');
+	logger.info('Mosca Server listening on', config.mosca.port);
 	server.authenticate = authenticate;
 	server.authorizePublish = authorizePublish;
 	server.authorizeSubscribe = authorizeSubscribe;
@@ -36,7 +36,7 @@ server.on('published', function(packet, aClient){
 	 var message = new iotDevice.Message(data);
 
 	if(aClient){
-		client.connectiona.iotclient.sendEvent(message, print('send'));
+		aClient.connectiona.sendEvent(message, print('send'));
 	
 	}else{
 		logger.warn('No client element found skipping');
