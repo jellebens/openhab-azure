@@ -12,9 +12,27 @@ var moscaSettings = {port: config.mosca.port };
 
 var server = new mosca.Server(moscaSettings)
 
+
+var client = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
 var protocol = mqttDevice.Mqtt;
 
-var authorized = false;
+
+var connectCallback = function (err) {
+  if (err) {
+      logger.error('Could not connect: ' + err.message);
+        } else {
+	    logger.info('Client connected');
+	    client.on('message', function (msg) {
+	    logger.Info('Id: ' + msg.messageId + ' Body: ' + msg.data);
+	   
+	    client.complete(msg, printResultFor('completed'));
+	    // reject and abandon follow the same pattern.
+	   // /!\ reject and abandon are not available with MQTT
+	    });
+	}
+};
+
+client.open(connectCallback);
 
 server.on('ready', function(){
 	logger.info('Mosca Server listening on', config.mosca.port);
@@ -35,8 +53,8 @@ server.on('published', function(packet, aClient){
 	 var data = JSON.stringify({ "payload": packet.payload.toString(), "topic": topic, "DeviceId": deviceId, "TimeStamp": Date() });
 	 var message = new iotDevice.Message(data);
 
-	if(aClient){
-		aClient.connectiona.sendEvent(message, print('send'));
+	if(client){
+		client.sendEvent(message, printResultFor('send'));
 	
 	}else{
 		logger.warn('No client element found skipping');
@@ -46,13 +64,7 @@ server.on('published', function(packet, aClient){
 });
 
 var authenticate = function(client, username, password, callback){
-	var connection = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
-        connection.open(function(args){
-              client.connectiona = connection;
-	      client.user = username;
-	      authorized = true;
-	      callback(null, authorized);
-        });
+	callback(null, true);
 
 }
 
@@ -65,7 +77,7 @@ var authorizeSubscribe = function (client, topic, callback) {
 }
 
  
-function print(op){
+function printResultFor(op){
 	return function printResult(err, res) {
         if (err) console.log('IOT: ' + op + ' error: ' + err.toString());
         if (res && (res.statusCode !== 204)) console.log('IOT: ' + op + ' status: ' + res.statusCode + ' ' + res.statusMessage);
