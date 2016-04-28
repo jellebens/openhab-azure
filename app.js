@@ -10,7 +10,7 @@ var logger = new (winston.Logger)({transports : [new (winston.transports.Console
 
 var moscaSettings = { port: config.mosca.port };
 
-var server = new mosca.Server(moscaSettings)
+var server = new mosca.Server(moscaSettings);
 
 
 var client = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
@@ -23,11 +23,9 @@ var connectCallback = function (err) {
         } else {
 	    logger.info('Client connected to azure');
 	    client.on('message', function (msg) {
-	    logger.Info('Id: ' + msg.messageId + ' Body: ' + msg.data);
+	    logger.info('Id: ' + msg.messageId + ' Body: ' + msg.data);
 	   
 	    client.complete(msg, printResultFor('completed'));
-	    // reject and abandon follow the same pattern.
-	   // /!\ reject and abandon are not available with MQTT
 	    });
 	}
 };
@@ -48,11 +46,13 @@ server.on('clientConnected', function(client){
 server.on('published', function(packet, aClient){
 	logger.info('published to topic', packet.topic.toString());
 
-	 var topic = packet.topic.toString().split('/')[1].toString();
-	
-	 var data = JSON.stringify({ "payload": packet.payload.toString(), "topic": topic, "DeviceId": config.iothub.deviceId, "TimeStamp": Date() });
+
 	 if(topic == 'openhab'){	
-	    var message = new iotDevice.Message(data);
+	    var message = new iotDevice.Message(packet.payload);
+	    message.messageId = packet.messageId;
+
+	    logger.info('Forwarding message with id' + message.messageId);
+
 	    client.sendEvent(message, printResultFor('send'));
 	}
 });
