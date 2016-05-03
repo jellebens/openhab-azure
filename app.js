@@ -6,7 +6,20 @@ var mqttDevice = require('azure-iot-device-mqtt');
 var iotDevice = require('azure-iot-device');
 var config = require('./config');
 
-var logger = new (winston.Logger)({transports : [new (winston.transports.Console)({'timestamp': true})]});
+var logger = new (winston.Logger)({ 
+				transports : [  new winston.transports.File({
+            						level: 'info',
+	            					filename: config.logging.path,
+						        handleExceptions: true,
+            						json: true,
+            						maxsize: 5242880, //5MB
+            						maxFiles: 5,
+            						colorize: false}),					
+						new (winston.transports.Console)({
+							'timestamp': true,
+							colorize: true
+						})
+					    ]});
 
 var moscaSettings = { port: config.mosca.port };
 
@@ -30,6 +43,7 @@ var connectCallback = function (err) {
 	}
 };
 
+
 client.open(connectCallback);
 
 server.on('ready', function(){
@@ -46,14 +60,16 @@ server.on('clientConnected', function(client){
 server.on('published', function(packet, aClient){
 	logger.info('published to topic', packet.topic.toString());
 
+	var topic = packet.topic.toString().split('/')[1].toString();
 
 	 if(topic == 'openhab'){	
 	    var message = new iotDevice.Message(packet.payload);
 	    message.messageId = packet.messageId;
 
 	    logger.info('Forwarding message with id' + message.messageId);
-
+	    
 	    client.sendEvent(message, printResultFor('send'));
+	    
 	}
 });
 
@@ -70,11 +86,30 @@ var authorizeSubscribe = function (client, topic, callback) {
     callback(null, true);
 }
 
+client.on('error', function (err) {
+      logger.error(err);
+      
+      logger.info('closing connection');
+
+      client.close();
+ });
+
+//client.on('disconnect',function(err){
+//	logger.warn('Client disconnecting');
+//	client.close(connectCallback):
+//	logger.info('client reconnecting');
+//	client.open(connectCallback);
+//});
  
 function printResultFor(op){
 	return function printResult(err, res) {
          if(err){ 
 		logger.error('IOT: ' + op + ' error: ' + err.toString());
+		if(err.toString() == 'Error: client disconnecting'){
+			logger.warn('Client disconnecting trying to reconnect');
+			client.close();
+			client.open(connectCallback);
+		}
 	}
         
 		
