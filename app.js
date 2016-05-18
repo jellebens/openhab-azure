@@ -1,8 +1,8 @@
 'use strict';
 
-var mosca = require('mosca');
+var mqtt = require('mqtt');
 var winston = require('winston')
-var mqttDevice = require('azure-iot-device-mqtt');
+var azureClient = require('azure-iot-device-mqtt');
 var iotDevice = require('azure-iot-device');
 var config = require('./config');
 
@@ -22,6 +22,30 @@ var logger = new (winston.Logger)({
 					    ]});
 
 
+//var protocol = mqttDevice.Mqtt;
+//var azureClient = azureClient.clientFromConnectionString(config.iothub.connectionstring, protocol);
 
-var client = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
-var protocol = mqttDevice.Mqtt;
+logger.info('Connecting to localhost');
+
+var client = mqtt.connect('tcp://localhost:1883/');
+
+
+client.on('connect',  function(args){
+	logger.info('Client Connected to mosquitto ' + config.mqtt.connectionstring);
+});
+
+logger.info('Connected to localhost');
+
+logger.info(client);
+
+client.on('error', function(error){
+	logger.error('An error occurred', error);
+
+});
+
+
+client.on('message', function (topic, message) {
+  // message is Buffer 
+  console.log(message.toString());
+  client.end();
+});
