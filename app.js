@@ -2,9 +2,9 @@
 
 var mqtt = require('mqtt');
 var winston = require('winston')
-var azureClient = require('azure-iot-device-mqtt');
+var iotMqttDevice = require('azure-iot-device-mqtt');
 var iotDevice = require('azure-iot-device');
-var config = require('./config');
+var config = require('./config.js');
 
 var logger = new (winston.Logger)({ 
 				transports : [  new winston.transports.File({
@@ -22,30 +22,74 @@ var logger = new (winston.Logger)({
 					    ]});
 
 
-//var protocol = mqttDevice.Mqtt;
-//var azureClient = azureClient.clientFromConnectionString(config.iothub.connectionstring, protocol);
+var protocol = iotMqttDevice.Mqtt;
+var azureClient = iotMqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
+
+
 
 logger.info('Connecting to localhost');
-
-var client = mqtt.connect('tcp://localhost:1883/');
-
+var client = mqtt.connect('tcp://' + config.mqtt.hostname + ':' + config.mqtt.port + '/');
 
 client.on('connect',  function(args){
-	logger.info('Client Connected to mosquitto ' + config.mqtt.connectionstring);
+    logger.info('Client Connected to mqtt buss');
+    try {
+        client.subscribe(config.mqtt.topic);
+        logger.info('Client subscribed to ' + config.mqtt.topic);
+
+        azureClient.open(connectCallback);
+
+    } catch (exc) { 
+        logger.error('Exception occurred supscibing to topic ' + exc.toString());
+    }
+    
 });
-
-logger.info('Connected to localhost');
-
-logger.info(client);
 
 client.on('error', function(error){
 	logger.error('An error occurred', error);
-
 });
 
 
 client.on('message', function (topic, message) {
-  // message is Buffer 
-  console.log(message.toString());
-  client.end();
+    
+    try {
+        logger.info('Message received');
+
+        var forwardedMsg = new iotDevice.Message(message);
+        
+        logger.info('Forwarding message');
+        
+        azureClient.sendEvent(forwardedMsg, printResultFor('send'));
+        
+        logger.info('Message forwarded')
+        
+        
+    }catch (exc) { 
+        logger.error('An exception occured' + exc.toString());   
+    }
+    
+});
+
+var connectCallback = function (err) {
+    if (err) {
+        logger.error('Could not connect: ' + err);
+    } else {
+        logger.info('Client connected to cloud');
+    }
+}
+
+function printResultFor(op) {
+   
+    return function printResult(err, res) {
+        if (err) { 
+            logger.error(op + ' error: ' + err.toString());
+        } 
+        if (res) { 
+            logger.info(op + ' status: ' + res.constructor.name);
+        } 
+    };
+}
+
+
+process.on('uncaughtException', function(err){
+    console.log('Caught exception: ' + err);
 });
