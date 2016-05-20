@@ -77,11 +77,19 @@ var connectCallback = function (err) {
     }
 }
 
+azureClient.on('disconnecting')
+
 function printResultFor(op) {
    
     return function printResult(err, res) {
         if (err) { 
-            logger.error(op + ' error: ' + err.toString());
+	    if(op == 'send' && err.toString() == 'client disconnecting'){
+		logger.warn('Connection lost reconnecting');
+	    	azureClient.open(connectCallback);	
+	    }else{
+	    	logger.error(op + ' error: ' + err.toString());
+	    }
+            
         } 
         if (res) { 
             logger.info(op + ' status: ' + res.constructor.name);
