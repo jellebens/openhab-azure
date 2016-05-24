@@ -13,8 +13,7 @@
   "dependencies": {
     "azure-iot-device": "*",
     "azure-iot-device-mqtt": "*",
-    "mosca": "*",
-    "mqtt": "*",
+    "mqtt": "^1.10.0",
     "winston": "*"
   },
   "keywords": [

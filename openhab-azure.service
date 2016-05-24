@@ -1,0 +1,13 @@
+[Unit]
+Description=forwards Openhab mqtt events to azure iot hub
+
+[Service]
+ExecStart=/usr/bin/node /opt/openhab-azure/app.js
+Restart=always
+User=sickrage
+Group=sickrage
+Environment=NODE_ENV=production
+WorkingDirectory=/opt/openhab-azure
+
+[Install]
+WantedBy=multi-user.target

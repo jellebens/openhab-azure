@@ -1,86 +1,103 @@
 'use strict';
 
-var mosca = require('mosca');
+var mqtt = require('mqtt');
 var winston = require('winston')
-var mqttDevice = require('azure-iot-device-mqtt');
+var iotMqttDevice = require('azure-iot-device-mqtt');
 var iotDevice = require('azure-iot-device');
-var config = require('./config');
+var config = require('./config.js');
 
-var logger = new (winston.Logger)({transports : [new (winston.transports.Console)({'timestamp': true})]});
+var logger = new (winston.Logger)({ 
+				transports : [  new winston.transports.File({
+            						level: 'info',
+	            					filename: config.logging.path,
+						        handleExceptions: true,
+            						json: true,
+            						maxsize: 5242880, //5MB
+            						maxFiles: 5,
+            						colorize: false}),					
+						new (winston.transports.Console)({
+							'timestamp': true,
+							colorize: true
+						})
+					    ]});
 
-var moscaSettings = {port: config.mosca.port };
 
-var server = new mosca.Server(moscaSettings)
+var protocol = iotMqttDevice.Mqtt;
+var azureClient = iotMqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
 
 
-var client = mqttDevice.clientFromConnectionString(config.iothub.connectionstring, protocol);
-var protocol = mqttDevice.Mqtt;
 
+logger.info('Connecting to localhost');
+var client = mqtt.connect('tcp://' + config.mqtt.hostname + ':' + config.mqtt.port + '/');
+
+client.on('connect',  function(args){
+    logger.info('Client Connected to mqtt buss');
+    try {
+        client.subscribe(config.mqtt.topic);
+        logger.info('Client subscribed to ' + config.mqtt.topic);
+
+        azureClient.open(connectCallback);
+
+    } catch (exc) { 
+        logger.error('Exception occurred supscibing to topic ' + exc.toString());
+    }
+    
+});
+
+client.on('error', function(error){
+	logger.error('An error occurred', error);
+});
+
+
+client.on('message', function (topic, message) {
+    
+    try {
+        logger.info('Message received');
+
+        var forwardedMsg = new iotDevice.Message(message);
+        
+        logger.info('Forwarding message');
+        
+        azureClient.sendEvent(forwardedMsg, printResultFor('send'));
+        
+        logger.info('Message forwarded')
+        
+        
+    }catch (exc) { 
+        logger.error('An exception occured' + exc.toString());   
+    }
+    
+});
 
 var connectCallback = function (err) {
-  if (err) {
-      logger.error('Could not connect: ' + err.message);
-        } else {
-	    logger.info('Client connected');
-	    client.on('message', function (msg) {
-	    logger.Info('Id: ' + msg.messageId + ' Body: ' + msg.data);
-	   
-	    client.complete(msg, printResultFor('completed'));
-	    // reject and abandon follow the same pattern.
-	   // /!\ reject and abandon are not available with MQTT
-	    });
-	}
-};
-
-client.open(connectCallback);
-
-server.on('ready', function(){
-	logger.info('Mosca Server listening on', config.mosca.port);
-	server.authenticate = authenticate;
-	server.authorizePublish = authorizePublish;
-	server.authorizeSubscribe = authorizeSubscribe;
-});
-
-server.on('clientConnected', function(client){
-	logger.info('Client connected', client.id);
-});
-
-server.on('published', function(packet, aClient){
-	logger.info('published to topic', packet.topic.toString());
-
-	 var deviceId = packet.topic.toString().split('/', 1).toString();
-	 var topic = packet.topic.toString().split('/')[1].toString();
-	 var data = JSON.stringify({ "payload": packet.payload.toString(), "topic": topic, "DeviceId": deviceId, "TimeStamp": Date() });
-	 var message = new iotDevice.Message(data);
-
-	if(client){
-		client.sendEvent(message, printResultFor('send'));
-	
-	}else{
-		logger.warn('No client element found skipping');
-	}
-
-
-});
-
-var authenticate = function(client, username, password, callback){
-	callback(null, true);
-
+    if (err) {
+        logger.error('Could not connect: ' + err);
+    } else {
+        logger.info('Client connected to cloud');
+    }
 }
 
-var authorizePublish = function (client, topic, payload, callback) {
-    callback(null, true);
-}
+azureClient.on('disconnecting')
 
-var authorizeSubscribe = function (client, topic, callback) {
-    callback(null, true);
-}
-
- 
-function printResultFor(op){
-	return function printResult(err, res) {
-        if (err) console.log('IOT: ' + op + ' error: ' + err.toString());
-        if (res && (res.statusCode !== 204)) console.log('IOT: ' + op + ' status: ' + res.statusCode + ' ' + res.statusMessage);
+function printResultFor(op) {
+   
+    return function printResult(err, res) {
+        if (err) { 
+	    if(op == 'send' && err.toString() == 'client disconnecting'){
+		logger.warn('Connection lost reconnecting');
+	    	azureClient.open(connectCallback);	
+	    }else{
+	    	logger.error(op + ' error: ' + err.toString());
+	    }
+            
+        } 
+        if (res) { 
+            logger.info(op + ' status: ' + res.constructor.name);
+        } 
     };
-
 }
+
+
+process.on('uncaughtException', function(err){
+    console.log('Caught exception: ' + err);
+});
