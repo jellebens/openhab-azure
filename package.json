@@ -13,6 +13,7 @@
   "dependencies": {
     "azure-iot-device": "*",
     "azure-iot-device-mqtt": "*",
+    "moment": "^2.13.0",
     "mqtt": "^1.10.0",
     "winston": "*"
   },
