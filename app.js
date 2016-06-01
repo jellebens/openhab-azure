@@ -1,23 +1,28 @@
 'use strict';
 
+var moment = require('moment');
 var mqtt = require('mqtt');
 var winston = require('winston')
 var iotMqttDevice = require('azure-iot-device-mqtt');
 var iotDevice = require('azure-iot-device');
 var config = require('./config.js');
 
+
+var logfile = config.logging.path + '/openhab-azure_' + moment().format('YYMMDDhhmmss')  + '.log';
+
 var logger = new (winston.Logger)({ 
 				transports : [  new winston.transports.File({
             						level: 'info',
-	            					filename: config.logging.path,
+	            					filename:  logfile,
 						        handleExceptions: true,
-            						json: true,
+            						json: false,
             						maxsize: 5242880, //5MB
             						maxFiles: 5,
             						colorize: false}),					
 						new (winston.transports.Console)({
 							'timestamp': true,
-							colorize: true
+							colorize: true,
+							handleExceptions: true
 						})
 					    ]});
 
@@ -77,20 +82,16 @@ var connectCallback = function (err) {
     }
 }
 
-azureClient.on('disconnecting')
+
 
 function printResultFor(op) {
    
     return function printResult(err, res) {
         if (err) { 
-	    if(op == 'send' && err.toString() == 'client disconnecting'){
-		logger.warn('Connection lost reconnecting');
-	    	azureClient.open(connectCallback);	
-	    }else{
-	    	logger.error(op + ' error: ' + err.toString());
-	    }
-            
-        } 
+	    logger.error(op + ' error: ' + err.toString());
+	    logger.info('Exiting');
+	    process.exit(1);
+	} 
         if (res) { 
             logger.info(op + ' status: ' + res.constructor.name);
         } 
